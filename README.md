@@ -32,9 +32,9 @@ therefore rendering your fingerprint verification silently useless.
 Here RockVerify allows to simply register your item on the blockchain anonymously, making it easily downloadable later on while removing
 the possibility of the attacker scenario above happening.
 
-## Register on the blockchain
+## Register a downloadable on the blockchain
 
-To register an item on the blockchain export your Rockside API key and register the URL of the item:
+To register an downloadable item on the blockchain export your Rockside API key and register the URL of the item:
 
 ```console
 export ROCKSIDE_API_KEY
