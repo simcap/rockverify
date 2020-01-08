@@ -21,13 +21,19 @@ import (
 )
 
 var (
-	rocksideAPIKey  = os.Getenv("ROCKSIDE_API_KEY")
-	rocksideAPIURL  = "https://api.rockside.io"
-	contractAddress = common.HexToAddress("0xa2c13b62d34613191578f901dde757c1b86f6484")
+	rocksideAPIKey    = os.Getenv("ROCKSIDE_API_KEY")
+	rocksideAPIURL    = "https://api.rockside.io"
+	contractAddress   = common.HexToAddress("0xa2c13b62d34613191578f901dde757c1b86f6484")
+	testnetFlag       = flag.Bool("testnet", true, "Use testnet (Ropsten) instead of mainnet")
+	blockchainNetwork = rockside.Mainnet
 )
 
 func main() {
 	flag.Parse()
+
+	if *testnetFlag {
+		blockchainNetwork = rockside.Ropsten
+	}
 
 	switch flag.Arg(0) {
 	case "":
@@ -46,7 +52,7 @@ func main() {
 }
 
 func registerURL(url *url.URL) error {
-	printInfo("computing fingerprint of content at '%s'", url)
+	printInfo("computing fingerprint of content found at '%s'", url)
 	contentShasum, err := shasumContentAt(url)
 	if err != nil {
 		return err
@@ -75,12 +81,12 @@ func registerURL(url *url.URL) error {
 		Data: fmt.Sprintf("0x%x", call),
 	}
 
-	printInfo("performing blockchain transaction to register content fingerprint of '%s'", url)
-	if _, _, err := client.Transaction.Send(transaction, rockside.Ropsten); err != nil {
+	printInfo("performing blockchain transaction to register fingerprints")
+	if _, _, err := client.Transaction.Send(transaction, blockchainNetwork); err != nil {
 		printError("cannot perform transaction: %s", err)
 		return err
 	}
-	printInfo("fingerprints (only) of URL and content have been registered to the blockchain successfully")
+	printInfo("URL and content fingerprints have been registered successfully to the blockchain. Thanks Rockside!")
 
 	return nil
 }
@@ -92,10 +98,10 @@ func downloadContent(u *url.URL) error {
 		return err
 	}
 
-	printInfo("reading on the blockchain entry for '%s'", u)
+	printInfo("reading blockchain entry for '%s'", u)
 	contentShasum, err := rockverify.Lookup(nil, urlShasum)
 	if err != nil {
-		printError("cannot read entry on the blockchain: %s", err)
+		printError("cannot read blockchain entry: %s", err)
 		return err
 	}
 
@@ -117,14 +123,14 @@ func downloadContent(u *url.URL) error {
 	printInfo("content downloaded to local file %s", file.Name())
 
 	if actualShasum != contentShasum {
-		printError("mismatch of actual content fingerprint and registered blockchain fingerprint!")
+		printError("mismatch: actual content fingerprint != registered blockchain fingerprint")
 		if err := os.Remove(file.Name()); err != nil {
 			printError("cannot remove local file at %s", file.Name())
 		}
 		printInfo("removed downloaded file")
-		return nil
 	} else {
-		printInfo("content has been verified successfully. Thanks Rockside!")
+		printInfo("fingerprint of downloaded content matches registered fingerprint on blockchain")
+		printInfo("verification is successful. Thanks Rockside!")
 	}
 
 	return nil
