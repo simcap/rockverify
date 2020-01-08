@@ -7,13 +7,14 @@ To interact easily with the blockchain, we use [Rockside](https://www.rockside.i
 
 ## Example
 
-You want a third party to download securely content from a URL you have. _First_, register on the blockchain the fingerprint of the URL with:
+You want a third party to download securely content from a URL you have. 
+
+_First_, register on the blockchain the fingerprint of the URL with:
 
 ```sh
 # note the URL does not become public as only its fingerprints is registered on the blockchain
 rockverify register https://example.com/releases/1.5.4/binary
 ```
-
 
 _Secondly_, send to your third party the following command to run:
 
@@ -31,6 +32,8 @@ rockverify https://example.com/releases/1.5.4/binary
 [+] fingerprint of downloaded content matches registered fingerprint on blockchain
 [+] verification is successful. Thanks Rockside!
 ```
+
+(For HTTPS authentication based accessible content see below.)
 
 ## What are we trying to solve?
 
@@ -60,3 +63,27 @@ rockverify register https://...
 ## Install
 
 To install the CLI locally run `go get github.com/simcap/rockverify` or grab the latest binary here.
+
+## HTTPS Basic Authentication
+
+If your content is protected with HTTPS basic authentication, use the `basic-auth-username` flag (password being asked via prompt).
+
+For example:
+
+```console
+rockverify --basic-auth-username john register https://example.com/releases/1.5.4/binary
+[+] normalizing given URL
+[+] computing fingerprint of content found at 'https://example.com/releases/1.5.4/binary'
+Enter Password: 
+
+```
+
+Then on the download side of things:
+
+```console
+rockverify --basic-auth-username john https://example.com/releases/1.5.4/binary
+[+] normalizing given URL
+[+] reading blockchain entry for 'https://example.com/releases/1.5.4/binary'
+Enter Password:
+
+```

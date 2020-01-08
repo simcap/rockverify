@@ -7,12 +7,14 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"golang.org/x/crypto/ssh/terminal"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
+	"syscall"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -25,6 +27,7 @@ var (
 	rocksideAPIURL    = "https://api.rockside.io"
 	contractAddress   = common.HexToAddress("0xa2c13b62d34613191578f901dde757c1b86f6484")
 	testnetFlag       = flag.Bool("testnet", true, "Use testnet (Ropsten) instead of mainnet")
+	basicAuthUsername = flag.String("basic-auth-username", "", "Username for HTTP basic authentication, password then asked by prompt")
 	blockchainNetwork = rockside.Mainnet
 )
 
@@ -52,7 +55,6 @@ func main() {
 }
 
 func registerURL(url *url.URL) error {
-	printInfo("computing fingerprint of content found at '%s'", url)
 	contentShasum, err := shasumContentAt(url)
 	if err != nil {
 		return err
@@ -156,7 +158,7 @@ func shasumContentAt(url *url.URL, writers ...io.Writer) ([32]byte, error) {
 		writer = writers[0]
 	}
 
-	resp, err := http.Get(url.String())
+	resp, err := httpGet(url.String())
 	if err != nil {
 		return shasum, fmt.Errorf("cannot GET %s: %s", url, err)
 	}
@@ -169,6 +171,34 @@ func shasumContentAt(url *url.URL, writers ...io.Writer) ([32]byte, error) {
 
 	copy(shasum[:], hasher.Sum(nil))
 	return shasum, nil
+}
+
+func httpGet(url string) (*http.Response, error) {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	if *basicAuthUsername != "" {
+		fmt.Fprintf(os.Stderr, "Enter Password: ")
+		password, err := terminal.ReadPassword(int(syscall.Stdin))
+		if err != nil {
+			return nil, fmt.Errorf("cannot read password: %s", err)
+		}
+		fmt.Fprintln(os.Stderr)
+		req.SetBasicAuth(*basicAuthUsername, string(password))
+	}
+
+	printInfo("computing fingerprint of content found at '%s'", url)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("cannot request %s: %s", url, err)
+	}
+	if code := resp.StatusCode; code < http.StatusOK || code > 299 {
+		return resp, fmt.Errorf("cannot request %s, got %d", url, code)
+	}
+
+	return resp, nil
 }
 
 func normalizeURL(u string) (*url.URL, error) {
