@@ -5,22 +5,36 @@ when downloading files from URL.
 
 To interact easily with the blockchain, we use [Rockside](https://www.rockside.io).
 
-Example:
+## Example
 
-* register a downloadable item on the blockchain: `rockverify register https://example.com/releases/1.5.4/binary` 
-* send this command to a third party: `rockverify https://example.com/releases/1.5.4/binary`
-* automatically the item is downloaded with the extra verification step performed, making the file available locally on success 
-  
-The process when we get an item from an URL is simple: 
+You want a third party to download securely content from a URL you have. 
 
-1. Validates URL format and normalizes it
-2. Lookup on the blockchain the entry for this URL using the URL shasum. If no entry abort.
-3. Get the data from the entry on the blockchain: URL (will be the same), shasum of file
-4. Download file from the URL and calculates its shasum
-5. Compare shasum register in the blockchain with shasum of downloaded file.
-6. If no shasum mismatch, the file will be available locally.
+First, register on the blockchain the fingerprint of the URL with:
 
-## File and fingerprints, problem?
+```sh
+rockverify register https://example.com/releases/1.5.4/binary
+```
+
+(Note the URL does not become public as only its fingerprints is registered on the blockchain)
+
+Then send to your third party the following command to run:
+
+```sh
+rockverify https://example.com/releases/1.5.4/binary 
+```
+
+Your third party will get the content automatically & securily on its local machine. He will see the following output:
+
+```console
+rockverify https://example.com/releases/1.5.4/binary
+[+] normalizing given URL
+[+] reading blockchain entry for 'https://example.com/releases/1.5.4/binary'
+[+] content downloaded to local file /tmp/rockverify-131833903
+[+] fingerprint of downloaded content matches registered fingerprint on blockchain
+[+] verification is successful. Thanks Rockside!
+```
+
+## What are we trying to solve?
 
 When we advertise on a website a file to be downloaded and the corresponding file fingerprint to be verified after download,
 we try to mitigate an in transit corruption of the file (it being malicious or not). 
@@ -32,11 +46,14 @@ therefore rendering your fingerprint verification silently useless.
 Here RockVerify allows to simply register your item on the blockchain anonymously, making it easily downloadable later on while removing
 the possibility of the attacker scenario above happening.
 
-## Register a downloadable on the blockchain
+## Register an entry on the blockchain
 
-To register an downloadable item on the blockchain export your Rockside API key and register the URL of the item:
+In order to perfom the command `rockverify register ...`, you will need to get a [Rockside](https://www.rockside.io) API key 
+since we need to write on the blockchain.
 
-```console
+Then do: 
+ 
+```sh
 export ROCKSIDE_API_KEY
 rockverify register https://...
 ``` 
