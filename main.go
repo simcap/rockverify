@@ -4,16 +4,17 @@ package main
 
 import (
 	"crypto/sha256"
+	"errors"
 	"flag"
 	"fmt"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"io"
-	"log"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/rocksideio/rockside-sdk-go"
@@ -21,32 +22,31 @@ import (
 
 var (
 	rocksideAPIKey  = os.Getenv("ROCKSIDE_API_KEY")
+	rocksideAPIURL  = "https://api.rockside.io"
 	contractAddress = common.HexToAddress("0xa2c13b62d34613191578f901dde757c1b86f6484")
 )
 
 func main() {
-	log.SetFlags(0)
 	flag.Parse()
 
 	switch flag.Arg(0) {
 	case "":
 		flag.PrintDefaults()
 	case "register":
-		url := normalizeURL(flag.Arg(1))
-		if err := registerURL(url); err != nil {
-			log.Fatal(err)
-		}
+		url, err := normalizeURL(flag.Arg(1))
+		exitOn(err)
+
+		exitOn(registerURL(url))
 	default:
-		url := normalizeURL(flag.Arg(1))
-		result, err := lookupURL(url)
-		if err != nil {
-			log.Fatal(err)
-		}
-		log.Printf("content shasum '%x' for url %s", result, url)
+		url, err := normalizeURL(flag.Arg(0))
+		exitOn(err)
+
+		exitOn(downloadContent(url))
 	}
 }
 
 func registerURL(url *url.URL) error {
+	printInfo("computing fingerprint of content at '%s'", url)
 	contentShasum, err := shasumContentAt(url)
 	if err != nil {
 		return err
@@ -62,47 +62,93 @@ func registerURL(url *url.URL) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("call %x", call)
 
-	client, err := rockside.New(rocksideAPIKey)
+	client, err := rockside.New(rocksideAPIURL)
 	if err != nil {
 		return err
 	}
+	client.SetAPIKey(rocksideAPIKey)
 
-	identities, _, err := client.Identities.List(rockside.Ropsten)
-	if err != nil {
-		return err
+	transaction := rockside.Transaction{
+		From: "0x4b706a10eb18EEd7f5d5faf756984f7cAE85e713",
+		To:   "0xa2c13b62d34613191578f901dde757c1b86f6484",
+		Data: fmt.Sprintf("0x%x", call),
 	}
 
-	log.Println(identities)
-	log.Printf("registering %s successful, transaction=%s", url.String(), "")
+	printInfo("performing blockchain transaction to register content fingerprint of '%s'", url)
+	if _, _, err := client.Transaction.Send(transaction, rockside.Ropsten); err != nil {
+		printError("cannot perform transaction: %s", err)
+		return err
+	}
+	printInfo("fingerprints (only) of URL and content have been registered to the blockchain successfully")
 
 	return nil
 }
 
-func lookupURL(u *url.URL) ([32]byte, error) {
+func downloadContent(u *url.URL) error {
 	urlShasum := sha256.Sum256([]byte(u.String()))
 	rockverify, err := NewRockVerifyCaller(contractAddress, rpcClient())
 	if err != nil {
-		return [32]byte{}, err
+		return err
 	}
-	return rockverify.Lookup(nil, urlShasum)
+
+	printInfo("reading on the blockchain entry for '%s'", u)
+	contentShasum, err := rockverify.Lookup(nil, urlShasum)
+	if err != nil {
+		printError("cannot read entry on the blockchain: %s", err)
+		return err
+	}
+
+	if contentShasum == [32]byte{} {
+		printWarn("nothing registered for '%s'", u)
+		return nil
+	}
+
+	file, err := ioutil.TempFile("", fmt.Sprintf("rockverify-*"))
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	actualShasum, err := shasumContentAt(u, file)
+	if err != nil {
+		return err
+	}
+	printInfo("content downloaded to local file %s", file.Name())
+
+	if actualShasum != contentShasum {
+		printError("mismatch of actual content fingerprint and registered blockchain fingerprint!")
+		if err := os.Remove(file.Name()); err != nil {
+			printError("cannot remove local file at %s", file.Name())
+		}
+		printInfo("removed downloaded file")
+		return nil
+	} else {
+		printInfo("content has been verified successfully. Thanks Rockside!")
+	}
+
+	return nil
 }
 
 func rpcClient() *ethclient.Client {
 	if rocksideAPIKey == "" {
-		log.Fatal("missing ROCKSIDE_API_KEY env variable to build RPC client")
+		exitOn(errors.New("missing ROCKSIDE_API_KEY env variable to build RPC client"))
 	}
 	client, err := ethclient.Dial(fmt.Sprintf("https://api.rockside.io/ethereum/ropsten/jsonrpc?apikey=%s", rocksideAPIKey))
 	if err != nil {
-		log.Fatal(err)
+		exitOn(err)
 	}
 
 	return client
 }
 
-func shasumContentAt(url *url.URL) ([32]byte, error) {
+func shasumContentAt(url *url.URL, writers ...io.Writer) ([32]byte, error) {
 	var shasum [32]byte
+
+	writer := ioutil.Discard
+	if len(writers) > 0 {
+		writer = writers[0]
+	}
 
 	resp, err := http.Get(url.String())
 	if err != nil {
@@ -111,7 +157,7 @@ func shasumContentAt(url *url.URL) ([32]byte, error) {
 	defer resp.Body.Close()
 
 	hasher := sha256.New()
-	if _, err := io.Copy(hasher, resp.Body); err != nil {
+	if _, err := io.Copy(io.MultiWriter(writer, hasher), resp.Body); err != nil {
 		return shasum, err
 	}
 
@@ -119,10 +165,31 @@ func shasumContentAt(url *url.URL) ([32]byte, error) {
 	return shasum, nil
 }
 
-func normalizeURL(u string) *url.URL {
+func normalizeURL(u string) (*url.URL, error) {
 	parsed, err := url.Parse(u)
 	if err != nil {
-		log.Fatal(err)
+		return parsed, err
 	}
-	return parsed
+	printInfo("normalizing given URL")
+	parsed.Path = strings.TrimSuffix(parsed.Path, "/")
+	return parsed, nil
+}
+
+func exitOn(err error) {
+	if err != nil {
+		printError(err.Error())
+		os.Exit(1)
+	}
+}
+
+func printError(s string, a ...interface{}) {
+	fmt.Fprintf(os.Stderr, "\033[31m[-]\033[m %s\n", fmt.Sprintf(s, a...))
+}
+
+func printWarn(s string, a ...interface{}) {
+	fmt.Fprintf(os.Stderr, "\033[33m[?]\033[m %s\n", fmt.Sprintf(s, a...))
+}
+
+func printInfo(s string, a ...interface{}) {
+	fmt.Fprintf(os.Stdout, "\033[32m[+]\033[m %s\n", fmt.Sprintf(s, a...))
 }
