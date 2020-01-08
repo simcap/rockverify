@@ -50,19 +50,19 @@ the possibility of the attacker scenario above happening.
 
 ## Register an entry on the blockchain
 
-In order to perfom the command `rockverify register ...`, you will need to get a [Rockside](https://www.rockside.io) API key 
+In order to perform the command `rockverify register ...`, you will need to get a [Rockside API key](https://www.rockside.io) 
 since we need to write on the blockchain.
 
-Then do: 
+Once you have one, do: 
  
 ```sh
-export ROCKSIDE_API_KEY
+export ROCKSIDE_API_KEY=....
 rockverify register https://...
 ``` 
 
 ## Install
 
-To install the CLI locally run `go get github.com/simcap/rockverify` or grab the latest binary here.
+To install the CLI locally, grab the latest linux/windows [binaries here](https://github.com/simcap/rockverify/releases). Or if you have GO just run `go get github.com/simcap/rockverify` 
 
 ## HTTPS Basic Authentication
 
