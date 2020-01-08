@@ -7,23 +7,21 @@ To interact easily with the blockchain, we use [Rockside](https://www.rockside.i
 
 ## Example
 
-You want a third party to download securely content from a URL you have. 
-
-First, register on the blockchain the fingerprint of the URL with:
+You want a third party to download securely content from a URL you have. _First_, register on the blockchain the fingerprint of the URL with:
 
 ```sh
+# note the URL does not become public as only its fingerprints is registered on the blockchain
 rockverify register https://example.com/releases/1.5.4/binary
 ```
 
-(Note the URL does not become public as only its fingerprints is registered on the blockchain)
 
-Then send to your third party the following command to run:
+_Secondly_, send to your third party the following command to run:
 
 ```sh
 rockverify https://example.com/releases/1.5.4/binary 
 ```
 
-Your third party will get the content automatically & securily on its local machine. He will see the following output:
+Your third party will get the content automatically & securely on its local machine, according to the following output:
 
 ```console
 rockverify https://example.com/releases/1.5.4/binary
@@ -37,13 +35,14 @@ rockverify https://example.com/releases/1.5.4/binary
 ## What are we trying to solve?
 
 When we advertise on a website a file to be downloaded and the corresponding file fingerprint to be verified after download,
-we try to mitigate an in transit corruption of the file (it being malicious or not). 
+we try to mitigate an in transit corruption of the file or a man in the middle attack. 
 
-Unfortunately, the fingerprint is not always a guarantee and can even add false confidence. Indeed, a motivated attacker that finds 
-a way to replace maliciously the file on your servers will most likely not have extra difficulty replacing also the file fingerprint, 
+Unfortunately, the fingerprint is not always a guarantee and can even add false confidence. 
+
+Indeed, a motivated attacker that finds a way to replace maliciously the file on your servers will have no difficulty replacing also the file fingerprint, 
 therefore rendering your fingerprint verification silently useless.
 
-Here RockVerify allows to simply register your item on the blockchain anonymously, making it easily downloadable later on while removing
+Here RockVerify allows to simply register the fingerprints of the URL and content on the blockchain, making it easily downloadable later on while removing
 the possibility of the attacker scenario above happening.
 
 ## Register an entry on the blockchain
