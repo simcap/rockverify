@@ -28,14 +28,14 @@ var (
 	contractAddress   = common.HexToAddress("0xa2c13b62d34613191578f901dde757c1b86f6484")
 	testnetFlag       = flag.Bool("testnet", true, "Use testnet (Ropsten) instead of mainnet")
 	basicAuthUsername = flag.String("basic-auth-username", "", "Username for HTTP basic authentication, password then asked by prompt")
-	blockchainNetwork = rockside.Mainnet
+	network           = rockside.Mainnet
 )
 
 func main() {
 	flag.Parse()
 
 	if *testnetFlag {
-		blockchainNetwork = rockside.Ropsten
+		network = rockside.Testnet
 	}
 
 	switch flag.Arg(0) {
@@ -71,11 +71,11 @@ func registerURL(url *url.URL) error {
 		return err
 	}
 
-	client, err := rockside.New(rocksideAPIURL)
+	client, err := rockside.NewClient(rocksideAPIURL, rocksideAPIKey)
 	if err != nil {
 		return err
 	}
-	client.SetAPIKey(rocksideAPIKey)
+	client.SetNetwork(rockside.Network(network))
 
 	transaction := rockside.Transaction{
 		From: "0x4b706a10eb18EEd7f5d5faf756984f7cAE85e713",
@@ -84,7 +84,7 @@ func registerURL(url *url.URL) error {
 	}
 
 	printInfo("performing blockchain transaction to register fingerprints")
-	if _, _, err := client.Transaction.Send(transaction, blockchainNetwork); err != nil {
+	if _, _, err := client.Transaction.Send(transaction); err != nil {
 		printError("cannot perform transaction: %s", err)
 		return err
 	}

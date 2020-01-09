@@ -162,6 +162,8 @@ github.com/robertkrimen/otto v0.0.0-20170205013659-6a77b7cbc37d h1:ouzpe+YhpIfnj
 github.com/robertkrimen/otto v0.0.0-20170205013659-6a77b7cbc37d/go.mod h1:xvqspoSXJTIpemEonrMDFq6XzwHYYgToXWj5eRX1OtY=
 github.com/rocksideio/rockside-sdk-go v0.0.0-20200107162010-68b187f8d1a2 h1:4LxoIF0SOfCr6pqKOEzyx3iwG8SMAcZ5gA1MFoTayfo=
 github.com/rocksideio/rockside-sdk-go v0.0.0-20200107162010-68b187f8d1a2/go.mod h1:z9Cx9fcwJPcrUiZJERzRFWNwEpbX/dh02/xkDQblKEw=
+github.com/rocksideio/rockside-sdk-go v0.0.0-20200109150531-0103b0fe9c46 h1:N1ee9j/i0+nE0AxSqmVLgk6/9M6JteSpPfR7UrtrO+g=
+github.com/rocksideio/rockside-sdk-go v0.0.0-20200109150531-0103b0fe9c46/go.mod h1:z9Cx9fcwJPcrUiZJERzRFWNwEpbX/dh02/xkDQblKEw=
 github.com/rs/cors v0.0.0-20160617231935-a62a804a8a00 h1:8DPul/X0IT/1TNMIxoKLwdemEOBBHDC/K4EB16Cw5WE=
 github.com/rs/cors v0.0.0-20160617231935-a62a804a8a00/go.mod h1:gFx+x8UowdsKA9AchylcLynDq+nNFfI8FkUZdN/jGCU=
 github.com/rs/xhandler v0.0.0-20160618193221-ed27b6fd6521 h1:3hxavr+IHMsQBrYUPQM5v0CgENFktkkbg1sfpgM3h20=
