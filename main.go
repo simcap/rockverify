@@ -10,6 +10,7 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -26,16 +27,16 @@ var (
 	rocksideAPIKey    = os.Getenv("ROCKSIDE_API_KEY")
 	rocksideAPIURL    = "https://api.rockside.io"
 	contractAddress   = common.HexToAddress("0xa2c13b62d34613191578f901dde757c1b86f6484")
-	testnetFlag       = flag.Bool("testnet", true, "Use testnet (Ropsten) instead of mainnet")
+	mainnetFlag       = flag.Bool("mainnet", true, "Use mainnet instead of testnet")
 	basicAuthUsername = flag.String("basic-auth-username", "", "Username for HTTP basic authentication, password then asked by prompt")
-	network           = rockside.Mainnet
+	network           = rockside.Testnet
 )
 
 func main() {
 	flag.Parse()
 
-	if *testnetFlag {
-		network = rockside.Testnet
+	if *mainnetFlag {
+		network = rockside.Mainnet
 	}
 
 	switch flag.Arg(0) {
@@ -46,12 +47,47 @@ func main() {
 		exitOn(err)
 
 		exitOn(registerURL(url))
+	case "deploy":
+		exitOn(deployContract())
 	default:
 		url, err := normalizeURL(flag.Arg(0))
 		exitOn(err)
 
 		exitOn(downloadContent(url))
 	}
+}
+
+func rocksideClientFromEnv() *rockside.Client {
+	client, err := rockside.NewClient(rocksideAPIURL, rocksideAPIKey)
+	if err != nil {
+		log.Fatalf("cannot build Rockside client: %s", err)
+	}
+	client.SetNetwork(rockside.Network(network))
+
+	return client
+}
+
+func deployContract() error {
+	client := rocksideClientFromEnv()
+
+	identities, err := client.Identities.List()
+	if err != nil {
+		return fmt.Errorf("listing Rockside identities: %s", err)
+	}
+
+	if len(identities) == 0 {
+		return errors.New("no identities on your Rockside account")
+	}
+
+	printInfo("deploying contract on %s using Rockside identity %s", network, identities[0])
+	txhash, err := client.DeployContractWithIdentity(identities[0], RockVerifyBin, RockVerifyABI)
+	if err != nil {
+		printError("cannot create contract on %s: %s", network, err)
+		return err
+	}
+	printInfo("contract '%s' created on %s [txhash='%s']", txhash)
+
+	return nil
 }
 
 func registerURL(url *url.URL) error {
@@ -71,20 +107,16 @@ func registerURL(url *url.URL) error {
 		return err
 	}
 
-	client, err := rockside.NewClient(rocksideAPIURL, rocksideAPIKey)
-	if err != nil {
-		return err
-	}
-	client.SetNetwork(rockside.Network(network))
-
 	transaction := rockside.Transaction{
 		From: "0x4b706a10eb18EEd7f5d5faf756984f7cAE85e713",
 		To:   "0xa2c13b62d34613191578f901dde757c1b86f6484",
 		Data: fmt.Sprintf("0x%x", call),
 	}
 
+	client := rocksideClientFromEnv()
+
 	printInfo("performing blockchain transaction to register fingerprints")
-	if _, _, err := client.Transaction.Send(transaction); err != nil {
+	if _, err := client.Transaction.Send(transaction); err != nil {
 		printError("cannot perform transaction: %s", err)
 		return err
 	}
@@ -213,7 +245,7 @@ func normalizeURL(u string) (*url.URL, error) {
 
 func exitOn(err error) {
 	if err != nil {
-		printError(err.Error())
+		printError("exit: %s", err.Error())
 		os.Exit(1)
 	}
 }
