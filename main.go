@@ -19,7 +19,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/rocksideio/rockside-sdk-go"
 )
 
@@ -30,6 +29,7 @@ var (
 	mainnetFlag       = flag.Bool("mainnet", true, "Use mainnet instead of testnet")
 	basicAuthUsername = flag.String("basic-auth-username", "", "Username for HTTP basic authentication, password then asked by prompt")
 	network           = rockside.Testnet
+	rocksideClient    *rockside.Client
 )
 
 func main() {
@@ -57,20 +57,19 @@ func main() {
 	}
 }
 
-func rocksideClientFromEnv() *rockside.Client {
-	client, err := rockside.NewClient(rocksideAPIURL, rocksideAPIKey)
-	if err != nil {
-		log.Fatalf("cannot build Rockside client: %s", err)
+func RocksideClient() *rockside.Client {
+	if rocksideClient == nil {
+		client, err := rockside.NewClient(rocksideAPIURL, rocksideAPIKey, rockside.Network(network))
+		if err != nil {
+			log.Fatalf("cannot build Rockside client: %s", err)
+		}
+		rocksideClient = client
 	}
-	client.SetNetwork(rockside.Network(network))
-
-	return client
+	return rocksideClient
 }
 
 func deployContract() error {
-	client := rocksideClientFromEnv()
-
-	identities, err := client.Identities.List()
+	identities, err := RocksideClient().Identities.List()
 	if err != nil {
 		return fmt.Errorf("listing Rockside identities: %s", err)
 	}
@@ -80,7 +79,7 @@ func deployContract() error {
 	}
 
 	printInfo("deploying contract on %s using Rockside identity %s", network, identities[0])
-	txhash, err := client.DeployContractWithIdentity(identities[0], RockVerifyBin, RockVerifyABI)
+	txhash, err := RocksideClient().DeployContractWithIdentity(identities[0], RockVerifyBin, RockVerifyABI)
 	if err != nil {
 		printError("cannot create contract on %s: %s", network, err)
 		return err
@@ -113,7 +112,7 @@ func registerURL(url *url.URL) error {
 		Data: fmt.Sprintf("0x%x", call),
 	}
 
-	client := rocksideClientFromEnv()
+	client := RocksideClient()
 
 	printInfo("performing blockchain transaction to register fingerprints")
 	if _, err := client.Transaction.Send(transaction); err != nil {
@@ -127,7 +126,7 @@ func registerURL(url *url.URL) error {
 
 func downloadContent(u *url.URL) error {
 	urlShasum := sha256.Sum256([]byte(u.String()))
-	rockverify, err := NewRockVerifyCaller(contractAddress, rpcClient())
+	rockverify, err := NewRockVerifyCaller(contractAddress, RocksideClient().RPCClient)
 	if err != nil {
 		return err
 	}
@@ -168,18 +167,6 @@ func downloadContent(u *url.URL) error {
 	}
 
 	return nil
-}
-
-func rpcClient() *ethclient.Client {
-	if rocksideAPIKey == "" {
-		exitOn(errors.New("missing ROCKSIDE_API_KEY env variable to build RPC client"))
-	}
-	client, err := ethclient.Dial(fmt.Sprintf("https://api.rockside.io/ethereum/ropsten/jsonrpc?apikey=%s", rocksideAPIKey))
-	if err != nil {
-		exitOn(err)
-	}
-
-	return client
 }
 
 func shasumContentAt(url *url.URL, writers ...io.Writer) ([32]byte, error) {
